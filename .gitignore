@@ -66,6 +66,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local Python virtual environment
+.venv/
+
 # Spyder project settings
 .spyderproject
 .spyderworkspace

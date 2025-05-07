@@ -50,3 +50,30 @@ python main.py
    ```bash
    pre-commit run --all-files
    ```
+
+## Setting up a Local Python Virtual Environment
+
+1. Create a virtual environment:
+   ```bash
+   python3 -m venv .venv
+   ```
+
+2. Activate the virtual environment:
+   - On macOS/Linux:
+     ```bash
+     source .venv/bin/activate
+     ```
+   - On Windows:
+     ```bash
+     .venv\Scripts\activate
+     ```
+
+3. Install dependencies (if any):
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Deactivate the virtual environment when done:
+   ```bash
+   deactivate
+   ```
