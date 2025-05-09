@@ -1,0 +1,4 @@
+# Tkinter is included with Python's standard library on macOS. No need to specify it here.
+# If you encounter issues, ensure your Python installation includes Tkinter.
+
+pytest
