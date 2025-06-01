@@ -2,3 +2,5 @@
 # If you encounter issues, ensure your Python installation includes Tkinter.
 
 pytest
+pre-commit==3.6.2
+black==24.2.0

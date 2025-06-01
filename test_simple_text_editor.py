@@ -19,17 +19,17 @@ def test_text_widget_exists(editor):
 
 
 def test_cursor_movement(editor):
-    editor.text_widget.insert('1.0', 'Hello\nWorld')
-    editor.text_widget.mark_set('insert', '2.0')
+    editor.text_widget.insert("1.0", "Hello\nWorld")
+    editor.text_widget.mark_set("insert", "2.0")
     # Move cursor up
     editor.move_cursor_up(None)
-    assert editor.text_widget.index('insert') == '1.0'
+    assert editor.text_widget.index("insert") == "1.0"
     # Move cursor down
     editor.move_cursor_down(None)
-    assert editor.text_widget.index('insert') == '2.0'
+    assert editor.text_widget.index("insert") == "2.0"
     # Move cursor left
     editor.move_cursor_left(None)
-    assert editor.text_widget.index('insert') == '1.5'
+    assert editor.text_widget.index("insert") == "1.5"
     # Move cursor right
     editor.move_cursor_right(None)
-    assert editor.text_widget.index('insert') == '2.0'
+    assert editor.text_widget.index("insert") == "2.0"
