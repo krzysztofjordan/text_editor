@@ -2,21 +2,14 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 
-class SimpleTextEditor(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Simple Text Editor")
-        self.geometry("600x400")
+class TextCanvas(tk.Canvas):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
 
         # Initialize text buffer as 2D array of characters
         self.buffer = [[]]
         self.cursor_row = 0
         self.cursor_col = 0
-
-        # Create canvas for custom text rendering
-        self.canvas = tk.Canvas(self)
-        self.canvas.pack(fill=tk.BOTH, expand=1)
-        self.canvas.focus_set()
 
         # Configure font and dimensions
         self.font = ("Courier", 12)
@@ -50,28 +43,27 @@ class SimpleTextEditor(tk.Tk):
         self.after(self.cursor_blink_delay, self.blink_cursor)
 
     def render_text(self):
-        self.canvas.delete("all")
+        self.delete("all")
 
         # Draw each line of text
         for row, line in enumerate(self.buffer):
             text = "".join(line)
             x = self.text_x
             y = self.text_y + (row * self.line_height)
-            self.canvas.create_text(x, y, text=text, font=self.font, anchor="nw")
+            self.create_text(x, y, text=text, font=self.font, anchor="nw")
 
         # Draw blinking cursor
         if self.cursor_visible:
             cursor_x = self.text_x + (self.cursor_col * self.char_width)
             cursor_y = self.text_y + (self.cursor_row * self.line_height)
-            self.canvas.create_text(
-                cursor_x, cursor_y, text="|", font=self.font, anchor="nw"
-            )
+            self.create_text(cursor_x, cursor_y, text="|", font=self.font, anchor="nw")
 
     def move_cursor_up(self, event):
         if self.cursor_row > 0:
             self.cursor_row -= 1
             # Ensure cursor doesn't go beyond line length
-            self.cursor_col = min(self.cursor_col, len(self.buffer[self.cursor_row]))
+            max_col = len(self.buffer[self.cursor_row])
+            self.cursor_col = min(self.cursor_col, max_col)
             self.render_text()
         return "break"
 
@@ -79,7 +71,8 @@ class SimpleTextEditor(tk.Tk):
         if self.cursor_row < len(self.buffer) - 1:
             self.cursor_row += 1
             # Ensure cursor doesn't go beyond line length
-            self.cursor_col = min(self.cursor_col, len(self.buffer[self.cursor_row]))
+            max_col = len(self.buffer[self.cursor_row])
+            self.cursor_col = min(self.cursor_col, max_col)
             self.render_text()
         return "break"
 
@@ -146,3 +139,12 @@ class SimpleTextEditor(tk.Tk):
             self.cursor_row -= 1
         self.render_text()
         return "break"
+
+    # Helper methods for testing
+    def get_text(self):
+        """Returns the entire text content as a string."""
+        return "\n".join("".join(line) for line in self.buffer)
+
+    def get_cursor_position(self):
+        """Returns the current cursor position as (row, col)."""
+        return (self.cursor_row, self.cursor_col)

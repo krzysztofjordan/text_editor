@@ -1,79 +1,69 @@
-# Text Editor
+# Simple Text Editor
 
-This is a simple text editor application.
+A lightweight text editor built with Python and Tkinter, featuring a clean and modern interface.
 
 ## Features
 
-- Create, edit, and save text files
-- Syntax highlighting for various programming languages
-- Search and replace functionality
-- Undo and redo actions
-- Customizable themes
+- Basic text editing capabilities
+- Cursor navigation
+- Line wrapping
+- Real-time text rendering
+- Blinking cursor
 
 ## Installation
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/username/text-editor.git
-   ```
+```bash
+git clone https://github.com/yourusername/simple-text-editor.git
+cd simple-text-editor
+```
 
-2. Navigate to the project directory:
-   ```bash
-   cd text-editor
-   ```
-
-3. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. Install the package in development mode:
+```bash
+pip install -e .
+```
 
 ## Usage
 
-Run the application:
+Run the editor using:
 ```bash
-python main.py
+python -m editor.main
 ```
 
-## Setting up Pre-commit Hooks
+## Project Structure
 
-1. Install pre-commit:
-   ```bash
-   pip install pre-commit
-   ```
+```
+simple-text-editor/
+├── src/
+│   ├── editor/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── components/
+│   │   │   ├── __init__.py
+│   │   │   └── text_canvas.py
+│   │   └── utils/
+│   │       └── __init__.py
+│   └── tests/
+│       └── __init__.py
+├── setup.py
+└── README.md
+```
 
-2. Install the hooks:
-   ```bash
-   pre-commit install
-   ```
+## Development
 
-3. Run the hooks manually (optional):
-   ```bash
-   pre-commit run --all-files
-   ```
-
-## Setting up a Local Python Virtual Environment
+To contribute to the project:
 
 1. Create a virtual environment:
-   ```bash
-   python3 -m venv .venv
-   ```
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
 
-2. Activate the virtual environment:
-   - On macOS/Linux:
-     ```bash
-     source .venv/bin/activate
-     ```
-   - On Windows:
-     ```bash
-     .venv\Scripts\activate
-     ```
+2. Install development dependencies:
+```bash
+pip install -e ".[dev]"
+```
 
-3. Install dependencies (if any):
-   ```bash
-   pip install -r requirements.txt
-   ```
+## License
 
-4. Deactivate the virtual environment when done:
-   ```bash
-   deactivate
-   ```
+MIT License
