@@ -1,3 +1,0 @@
-"""
-Tests for editor components
-"""
