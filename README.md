@@ -30,25 +30,6 @@ Run the editor using:
 python -m editor.main
 ```
 
-## Project Structure
-
-```
-simple-text-editor/
-├── src/
-│   ├── editor/
-│   │   ├── __init__.py
-│   │   ├── main.py
-│   │   ├── components/
-│   │   │   ├── __init__.py
-│   │   │   └── text_canvas.py
-│   │   └── utils/
-│   │       └── __init__.py
-│   └── tests/
-│       └── __init__.py
-├── setup.py
-└── README.md
-```
-
 ## Development
 
 To contribute to the project:
