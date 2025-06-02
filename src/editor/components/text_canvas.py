@@ -16,8 +16,12 @@ class TextCanvas(tk.Canvas):
         self.font_obj = tkfont.Font(family="Courier", size=12)
         self.char_width = self.font_obj.measure("0")
         self.line_height = self.font_obj.metrics()["linespace"]
-        self.text_x = 10  # Left margin
+        self.text_x = 35  # Increased left margin for line numbers
         self.text_y = 10  # Top margin
+
+        # Window dimensions
+        self.canvas_width = 0
+        self.canvas_height = 0
 
         # Cursor blinking state
         self.cursor_visible = True
@@ -32,10 +36,29 @@ class TextCanvas(tk.Canvas):
         self.bind("<Down>", self.move_cursor_down)
         self.bind("<Left>", self.move_cursor_left)
         self.bind("<Right>", self.move_cursor_right)
-        self.bind("<Configure>", lambda e: self.render_text())
+        self.bind("<Configure>", self.handle_resize)
         self.bind("<Key>", self.handle_keypress)
         self.bind("<Return>", self.handle_enter)
         self.bind("<BackSpace>", self.handle_backspace)
+
+    def handle_resize(self, event):
+        """Handle window resize events"""
+        self.canvas_width = event.width
+        self.canvas_height = event.height
+        self.render_text()
+
+    def get_visible_lines(self):
+        """Calculate how many lines can be displayed in the current window"""
+        if self.canvas_height <= 0:
+            return 1
+        visible_height = self.canvas_height - 2 * self.text_y
+        return max(1, visible_height // self.line_height)
+
+    def get_chars_per_line(self):
+        """Calculate how many characters can fit in one line"""
+        if self.canvas_width <= 0:
+            return 1
+        return max(1, (self.canvas_width - 2 * self.text_x) // self.char_width)
 
     def blink_cursor(self):
         self.cursor_visible = not self.cursor_visible
@@ -45,18 +68,92 @@ class TextCanvas(tk.Canvas):
     def render_text(self):
         self.delete("all")
 
+        # Calculate visible area
+        visible_lines = self.get_visible_lines()
+        chars_per_line = self.get_chars_per_line()
+
+        # Draw separator line between line numbers and text
+        self.create_line(
+            self.text_x - 10, 0, self.text_x - 10, self.canvas_height, fill="gray90"
+        )
+
         # Draw each line of text
         for row, line in enumerate(self.buffer):
             text = "".join(line)
             x = self.text_x
             y = self.text_y + (row * self.line_height)
-            self.create_text(x, y, text=text, font=self.font, anchor="nw")
+
+            # Only render if line is in visible area
+            if y + self.line_height > 0 and y < self.canvas_height:
+                # Draw line number
+                self.create_text(
+                    self.text_x - 15,
+                    y,
+                    text=str(row + 1),
+                    font=self.font,
+                    anchor="ne",
+                    fill="gray60",
+                )
+
+                # Draw text with word wrap if needed
+                if len(text) > chars_per_line:
+                    # Simple word wrap implementation
+                    wrapped_text = ""
+                    current_line = ""
+                    words = text.split()
+
+                    for word in words:
+                        if len(current_line) + len(word) + 1 <= chars_per_line:
+                            current_line += word + " "
+                        else:
+                            wrapped_text += current_line + "\n"
+                            current_line = word + " "
+                    wrapped_text += current_line
+
+                    self.create_text(
+                        x, y, text=wrapped_text, font=self.font, anchor="nw"
+                    )
+                else:
+                    self.create_text(x, y, text=text, font=self.font, anchor="nw")
 
         # Draw blinking cursor
         if self.cursor_visible:
             cursor_x = self.text_x + (self.cursor_col * self.char_width)
             cursor_y = self.text_y + (self.cursor_row * self.line_height)
             self.create_text(cursor_x, cursor_y, text="|", font=self.font, anchor="nw")
+
+        # Draw scrollbar if needed
+        if len(self.buffer) > visible_lines:
+            self.draw_scrollbar()
+
+    def draw_scrollbar(self):
+        """Draw a simple scrollbar on the right side"""
+        total_lines = len(self.buffer)
+        visible_lines = self.get_visible_lines()
+
+        if total_lines > visible_lines:
+            scrollbar_height = self.canvas_height
+            thumb_height = max(20, scrollbar_height * (visible_lines / total_lines))
+            scroll_ratio = self.cursor_row / total_lines
+            thumb_pos = scroll_ratio * (scrollbar_height - thumb_height)
+
+            # Draw scrollbar background
+            self.create_rectangle(
+                self.canvas_width - 10,
+                0,
+                self.canvas_width,
+                self.canvas_height,
+                fill="lightgray",
+            )
+
+            # Draw scrollbar thumb
+            self.create_rectangle(
+                self.canvas_width - 10,
+                thumb_pos,
+                self.canvas_width,
+                thumb_pos + thumb_height,
+                fill="gray",
+            )
 
     def move_cursor_up(self, event):
         if self.cursor_row > 0:
