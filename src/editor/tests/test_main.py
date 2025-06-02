@@ -1,6 +1,7 @@
 import pytest
 import tkinter as tk
 from editor.main import SimpleTextEditor
+from editor.components.text_canvas import TextCanvas
 
 
 @pytest.fixture
@@ -17,7 +18,7 @@ def test_editor_initialization(editor):
 
     # Check if text canvas was created
     assert hasattr(editor, "text_canvas")
-    assert isinstance(editor.text_canvas, tk.Canvas)
+    assert isinstance(editor.text_canvas, TextCanvas)
 
     # Update geometry to ensure it's set
     editor.geometry("600x400")

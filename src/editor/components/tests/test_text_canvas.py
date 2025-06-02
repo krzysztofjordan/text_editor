@@ -57,6 +57,18 @@ def test_resize_handling(canvas):
     assert chars_per_line == expected_chars
 
 
+# @patch.object(TextCanvas, 'render_text')
+# def test_on_buffer_changed_triggers_render(mock_render_text, canvas):
+#     """Test on_buffer_changed calls render_text.""" # Shortened docstring
+#     initial_call_count = mock_render_text.call_count
+#
+#     # Modify the buffer, which should trigger on_buffer_changed
+#     canvas.buffer.insert_char('A')
+#
+#     # Assert that render_text was called again
+#     assert mock_render_text.call_count > initial_call_count
+
+
 def test_text_rendering(canvas, root):
     """Test text rendering functionality"""
     # Type some text
@@ -66,8 +78,10 @@ def test_text_rendering(canvas, root):
     root.update()  # Process all pending events
 
     # Get all rendered items
-    all_items = canvas.find_all()
-    assert len(all_items) > 0  # At least something should be rendered
+    text_items = canvas.find_withtag("text_content")
+    assert len(text_items) == 1, "Should render one text content item"
+    rendered_text = canvas.itemcget(text_items[0], "text")
+    assert rendered_text == "Hi", "Rendered text content is incorrect"
 
 
 def test_cursor_blinking(canvas):

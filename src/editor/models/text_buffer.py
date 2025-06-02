@@ -97,14 +97,26 @@ class TextBuffer:
             self.cursor.col -= 1
         elif self.cursor.row > 0:
             # Cursor is at the beginning of a line, but not the first line.
-            # We need to delete the newline character at the end of the
-            # previous line. The absolute position of this newline is
-            # equivalent to the cursor's current absolute position, minus 1.
             current_pos = self._get_absolute_cursor_position()
             if current_pos > 0:
+                original_cursor_row = self.cursor.row
+
+                # Standard cursor update: to end of previous line
                 self.cursor.row -= 1
                 self.cursor.col = self.get_line_length(self.cursor.row)
-                self._rope = self._rope.delete(current_pos - 1, current_pos)
+
+                delete_start = current_pos - 1
+                delete_end = current_pos  # Default: delete 1 char
+
+                # If the line where backspace was pressed was empty,
+                # and current_pos is not at the very end of the document,
+                # extend deletion to remove the newline forming the empty line.
+                if self.get_line_length(original_cursor_row) == 0 and current_pos < len(
+                    self._rope
+                ):
+                    delete_end = current_pos + 1
+
+                self._rope = self._rope.delete(delete_start, delete_end)
         self._notify_observers()
 
     def move_cursor_left(self):

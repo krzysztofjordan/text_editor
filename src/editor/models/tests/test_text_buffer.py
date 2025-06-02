@@ -462,3 +462,197 @@ def test_observer_notification():
     buf.move_cursor_up()  # No effect if on first line
     assert observer.notified_count == 1
     observer.notified_count = 0
+
+
+def test_buffer_with_only_newline():
+    """Test operations on a buffer containing only a single newline."""
+    buf = TextBuffer()
+    buf._rope = Rope("\n")  # Initialize with a single newline
+    buf.cursor = Position(0, 0)  # Ensure cursor at start
+
+    assert buf.get_all_text() == "\n"
+    assert buf.get_line_count() == 2, "Buffer with '\n' has 2 lines"
+    assert buf.get_line(0) == "", "Line 0 should be empty"
+    assert buf.get_line(1) == "", "Line 1 should be empty"
+
+    # Insert char at (0,0)
+    buf.cursor = Position(0, 0)
+    buf.insert_char("a")
+    assert buf.get_all_text() == "a\n", "Insert at (0,0) on '\n'"
+    assert buf.get_line_count() == 2
+    assert buf.get_line(0) == "a"
+    assert buf.get_line(1) == ""
+    assert buf.get_cursor_position() == Position(0, 1)
+
+    # Reset buffer and test insert char at (1,0)
+    buf._rope = Rope("\n")
+    buf.cursor = Position(1, 0)
+    buf.insert_char("b")
+    assert buf.get_all_text() == "\nb", "Insert at (1,0) on '\n'"
+    assert buf.get_line_count() == 2
+    assert buf.get_line(0) == ""
+    assert buf.get_line(1) == "b"
+    assert buf.get_cursor_position() == Position(1, 1)
+
+    # Reset buffer and test backspace at (1,0)
+    buf._rope = Rope("\n")
+    buf.cursor = Position(1, 0)
+    buf.backspace()
+    assert buf.get_all_text() == "", "Backspace at (1,0) on '\n'"
+    assert buf.get_line_count() == 1
+    assert buf.get_line(0) == ""
+    assert buf.get_cursor_position() == Position(0, 0)  # Cursor to (0,0)
+
+    # Reset buffer and test backspace at (0,0) - should do nothing
+    buf._rope = Rope("\n")
+    buf.cursor = Position(0, 0)
+    initial_text = buf.get_all_text()
+    buf.backspace()
+    assert buf.get_all_text() == initial_text, "BS at (0,0) on '\n' no change"
+    assert buf.get_cursor_position() == Position(0, 0)
+
+
+def test_buffer_ending_with_multiple_newlines():
+    """Test operations on a buffer ending with multiple newlines."""
+    buf = TextBuffer()
+    initial_content = "abc\n\n"
+    buf._rope = Rope(initial_content)  # "abc\n\n"
+    # Line 0: "abc"
+    # Line 1: ""
+    # Line 2: ""
+
+    assert buf.get_all_text() == initial_content
+    assert buf.get_line_count() == 3, "'abc\n\n' should have 3 lines"
+    assert buf.get_line(0) == "abc"
+    assert buf.get_line(1) == ""
+    assert buf.get_line(2) == ""
+
+    # Insert char at the start of the last empty line (2,0)
+    buf.cursor = Position(2, 0)
+    buf.insert_char("d")
+    assert buf.get_all_text() == "abc\n\nd", "Insert 'd' at (2,0)"
+    assert buf.get_line_count() == 3
+    assert buf.get_line(2) == "d"
+    assert buf.get_cursor_position() == Position(2, 1)
+
+    # Reset, then backspace at the start of the last empty line (2,0)
+    buf._rope = Rope(initial_content)
+    buf.cursor = Position(2, 0)
+    buf.backspace()
+    assert buf.get_all_text() == "abc\n", "BS at (2,0) removes one NL"
+    assert buf.get_line_count() == 2
+    assert buf.get_line(1) == ""
+    # Cursor should be at the end of the previous line (line 1, which is empty)
+    assert buf.get_cursor_position() == Position(1, 0)
+
+    # Backspace again (now at (1,0) on "abc\n")
+    buf.backspace()
+    assert buf.get_all_text() == "abc", "BS at (1,0) removes another NL"
+    assert buf.get_line_count() == 1
+    assert buf.get_line(0) == "abc"
+    assert buf.get_cursor_position() == Position(0, 3)  # End of "abc"
+
+
+def test_operations_on_empty_line_in_middle():
+    """Test operations on an empty line between other lines."""
+    buf = TextBuffer()
+    initial_content = "abc\n\ndef"
+    buf._rope = Rope(initial_content)  # "abc\n\ndef"
+    # Line 0: "abc"
+    # Line 1: ""  <- Cursor will be here
+    # Line 2: "def"
+
+    # Test inserting a character on the empty line
+    buf.cursor = Position(1, 0)  # Cursor at start of the empty line
+    buf.insert_char("x")
+    assert buf.get_all_text() == "abc\nx\ndef"
+    assert buf.get_line_count() == 3
+    assert buf.get_line(0) == "abc"
+    assert buf.get_line(1) == "x"
+    assert buf.get_line(2) == "def"
+    assert buf.get_cursor_position() == Position(1, 1)
+
+    # Reset buffer for backspace test
+    buf._rope = Rope(initial_content)
+    buf.cursor = Position(1, 0)  # Cursor at start of the empty line
+    buf.backspace()
+    # Backspacing on an empty line between two non-empty lines should join them
+    assert buf.get_all_text() == "abcdef", "BS on empty mid-line joins"
+    assert buf.get_line_count() == 1
+    assert buf.get_line(0) == "abcdef"
+    # Cursor should be at the previous end of the first line
+    assert buf.get_cursor_position() == Position(0, 3)
+
+
+def test_insert_empty_char(observed_buffer):
+    """Test inserting an empty string does nothing."""
+    buffer, observer = observed_buffer
+    initial_text = buffer.get_all_text()
+    initial_pos = buffer.get_cursor_position()
+    initial_observer_count = observer.change_count
+
+    buffer.insert_char("")
+
+    assert buffer.get_all_text() == initial_text, "Text unchanged"
+    assert buffer.get_cursor_position() == initial_pos, "Cursor unchanged"
+    assert observer.change_count == initial_observer_count, "No notification"
+
+
+def test_unicode_characters(buffer):
+    """Test handling of Unicode (non-ASCII) characters."""
+    # Insert a character with an accent
+    buffer.insert_char("é")  # 1 character
+    assert buffer.get_all_text() == "é"
+    assert buffer.get_line_length(0) == 1, "Len 'é' is 1"
+    assert buffer.get_cursor_position() == Position(0, 1)
+
+    # Insert a CJK character
+    buffer.insert_char("世")  # 1 character
+    assert buffer.get_all_text() == "é世"
+    assert buffer.get_line_length(0) == 2, "Len 'é世' is 2"
+    assert buffer.get_cursor_position() == Position(0, 2)
+
+    # Insert an emoji (might be multiple code units but one character)
+    buffer.insert_char("😊")  # 1 character
+    assert buffer.get_all_text() == "é世😊"
+    assert buffer.get_line_length(0) == 3, "Len 'é世😊' is 3"
+    assert buffer.get_cursor_position() == Position(0, 3)
+
+    # Test backspace
+    buffer.backspace()  # Delete 😊
+    assert buffer.get_all_text() == "é世"
+    assert buffer.get_line_length(0) == 2
+    assert buffer.get_cursor_position() == Position(0, 2)
+
+    buffer.backspace()  # Delete 世
+    assert buffer.get_all_text() == "é"
+    assert buffer.get_line_length(0) == 1
+    assert buffer.get_cursor_position() == Position(0, 1)
+
+    # Test inserting newline after unicode
+    buffer.insert_newline()
+    assert buffer.get_all_text() == "é\n"
+    assert buffer.get_line_count() == 2
+    assert buffer.get_line(0) == "é"
+    assert buffer.get_line(1) == ""
+    assert buffer.get_cursor_position() == Position(1, 0)
+
+    # Insert unicode on the new line
+    buffer.insert_char("✅")
+    assert buffer.get_all_text() == "é\n✅"
+    assert buffer.get_line_length(1) == 1, "Len '✅' on new line"
+    assert buffer.get_cursor_position() == Position(1, 1)
+
+    # Test _get_absolute_cursor_position implicitly
+    buf2 = TextBuffer()
+    buf2.insert_char("a")
+    buf2.insert_char("b")
+    buf2.insert_char("世")  # ab世
+    buf2.insert_char("c")  # ab世c
+    buf2.cursor = Position(0, 2)  # cursor after 'b': ab|世c
+    abs_pos = buf2._get_absolute_cursor_position()
+    assert abs_pos == 2  # 'a' and 'b' are 1 char each
+
+    buf2.insert_char("-")  # ab-世c
+    assert buf2.get_all_text() == "ab-世c"
+    assert buf2._get_absolute_cursor_position() == 3  # a, b, -

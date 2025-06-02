@@ -115,10 +115,22 @@ class TextCanvas(tk.Canvas):
                     wrapped_text += current_line
 
                     self.create_text(
-                        x, y, text=wrapped_text, font=self.font, anchor="nw"
+                        x,
+                        y,
+                        text=wrapped_text,
+                        font=self.font,
+                        anchor="nw",
+                        tags=("text_content", f"text_content_row_{row}"),
                     )
                 else:
-                    self.create_text(x, y, text=text, font=self.font, anchor="nw")
+                    self.create_text(
+                        x,
+                        y,
+                        text=text,
+                        font=self.font,
+                        anchor="nw",
+                        tags=("text_content", f"text_content_row_{row}"),
+                    )
 
         # Draw blinking cursor
         if self.cursor_visible:
