@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple-text-editor"
+version = "0.1.0"
+description = "A simple text editor built with Python and Tkinter"
+authors = [
+    {name = "Krzysztof Jordan"}
+]
+requires-python = ">=3.6"
+keywords = ["text editor", "tkinter"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Editors",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=24.2.0",
+    "pre-commit>=3.6.0"
+]
+
+[project.scripts]
+simple-text-editor = "editor.main:SimpleTextEditor.main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["editor", "editor.components"] 
