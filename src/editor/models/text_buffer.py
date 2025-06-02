@@ -20,7 +20,7 @@ class TextBuffer:
     """Handles text storage and manipulation operations"""
 
     def __init__(self):
-        self._rope = Rope()  # Use rope instead of list of lists
+        self._rope = Rope()
         self.cursor = Position()
         self._observers = []
 
@@ -32,6 +32,25 @@ class TextBuffer:
         """Notify all observers that the buffer has changed"""
         for observer in self._observers:
             observer.on_buffer_changed()
+
+    def _get_absolute_cursor_position(self) -> int:
+        """Calculate the absolute character position of the cursor."""
+        # Get the entire text up to the cursor's line
+        text = self._rope.get_text()
+        lines = text.split("\n")
+
+        # Sum up the lengths of all lines before the cursor's line
+        pos = 0
+        for i in range(self.cursor.row):
+            pos += len(lines[i]) + 1  # +1 for the newline character
+
+        # Add the cursor's column position
+        if self.cursor.row < len(lines):
+            current_line_len = len(lines[self.cursor.row])
+        else:
+            current_line_len = 0
+        pos += min(self.cursor.col, current_line_len)
+        return pos
 
     def get_line(self, row: int) -> str:
         """Get the text content of a specific line"""
@@ -57,34 +76,14 @@ class TextBuffer:
         if not char:
             return
 
-        # Calculate absolute position from row/col
-        pos = 0
-        for i in range(self.cursor.row):
-            line = self.get_line(i)
-            pos += len(line)
-            # Add newline only if not at last line or if line is not empty
-            if i < self.cursor.row - 1 or line:
-                pos += 1  # Add newline
-        pos += self.cursor.col
-
-        # Insert character
+        pos = self._get_absolute_cursor_position()
         self._rope = self._rope.insert(pos, char)
-        self.cursor.col += 1
+        self.cursor.col += len(char)
         self._notify_observers()
 
     def insert_newline(self):
         """Insert a new line at the current cursor position"""
-        # Calculate absolute position
-        pos = 0
-        for i in range(self.cursor.row):
-            line = self.get_line(i)
-            pos += len(line)
-            # Add newline only if not at last line or if line is not empty
-            if i < self.cursor.row - 1 or line:
-                pos += 1
-        pos += self.cursor.col
-
-        # Insert newline
+        pos = self._get_absolute_cursor_position()
         self._rope = self._rope.insert(pos, "\n")
         self.cursor.row += 1
         self.cursor.col = 0
@@ -93,37 +92,19 @@ class TextBuffer:
     def backspace(self):
         """Delete the character before the cursor"""
         if self.cursor.col > 0:
-            # Calculate absolute position
-            pos = 0
-            for i in range(self.cursor.row):
-                line = self.get_line(i)
-                pos += len(line)
-                # Add newline only if not at last line or if line is not empty
-                if i < self.cursor.row - 1 or line:
-                    pos += 1
-            pos += self.cursor.col
-
-            # Delete previous character
+            pos = self._get_absolute_cursor_position()
             self._rope = self._rope.delete(pos - 1, pos)
             self.cursor.col -= 1
         elif self.cursor.row > 0:
-            # Move to end of previous line
-            self.cursor.row -= 1
-            self.cursor.col = len(self.get_line(self.cursor.row))
-
-            # Calculate absolute position
-            pos = 0
-            for i in range(self.cursor.row):
-                line = self.get_line(i)
-                pos += len(line)
-                # Add newline only if not at last line or if line is not empty
-                if i < self.cursor.row - 1 or line:
-                    pos += 1
-            pos += self.cursor.col
-
-            # Delete newline
-            self._rope = self._rope.delete(pos, pos + 1)
-
+            # Cursor is at the beginning of a line, but not the first line.
+            # We need to delete the newline character at the end of the
+            # previous line. The absolute position of this newline is
+            # equivalent to the cursor's current absolute position, minus 1.
+            current_pos = self._get_absolute_cursor_position()
+            if current_pos > 0:
+                self.cursor.row -= 1
+                self.cursor.col = self.get_line_length(self.cursor.row)
+                self._rope = self._rope.delete(current_pos - 1, current_pos)
         self._notify_observers()
 
     def move_cursor_left(self):
@@ -132,13 +113,13 @@ class TextBuffer:
             self.cursor.col -= 1
         elif self.cursor.row > 0:
             self.cursor.row -= 1
-            self.cursor.col = len(self.get_line(self.cursor.row))
+            self.cursor.col = self.get_line_length(self.cursor.row)
         self._notify_observers()
 
     def move_cursor_right(self):
         """Move the cursor one position right"""
-        current_line_length = len(self.get_line(self.cursor.row))
-        if self.cursor.col < current_line_length:
+        current_line_len = self.get_line_length(self.cursor.row)
+        if self.cursor.col < current_line_len:
             self.cursor.col += 1
         elif self.cursor.row < self.get_line_count() - 1:
             self.cursor.row += 1
@@ -149,16 +130,18 @@ class TextBuffer:
         """Move the cursor one line up"""
         if self.cursor.row > 0:
             self.cursor.row -= 1
-            current_line_length = len(self.get_line(self.cursor.row))
-            self.cursor.col = min(self.cursor.col, current_line_length)
+            self.cursor.col = min(
+                self.cursor.col, self.get_line_length(self.cursor.row)
+            )
         self._notify_observers()
 
     def move_cursor_down(self):
         """Move the cursor one line down"""
         if self.cursor.row < self.get_line_count() - 1:
             self.cursor.row += 1
-            current_line_length = len(self.get_line(self.cursor.row))
-            self.cursor.col = min(self.cursor.col, current_line_length)
+            self.cursor.col = min(
+                self.cursor.col, self.get_line_length(self.cursor.row)
+            )
         self._notify_observers()
 
     def get_cursor_position(self) -> Position:
