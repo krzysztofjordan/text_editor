@@ -81,7 +81,7 @@ def test_backspace(observed_buffer):
     for char in "Hello":
         buffer.insert_char(char)
 
-    buffer.backspace()  # Delete 'o'
+    buffer.backspace()
     assert buffer.get_line(0) == "Hell"
     assert buffer.get_cursor_position() == Position(0, 4)
 
@@ -260,7 +260,7 @@ def test_backspace_join_lines():
 
     buf.cursor.row = 1
     buf.cursor.col = 0  # Move cursor to beginning of second line: "a\n|b"
-    buf.backspace()  # Should delete the newline
+    buf.backspace()
 
     assert buf.get_all_text() == "ab"
     assert buf.get_line_count() == 1
@@ -372,22 +372,25 @@ def test_move_cursor_up_down_to_shorter_line():
     """Test up/down cursor movement to a shorter line."""
     buf = TextBuffer()
     text_lines = ["long line", "short", "longer line"]
-    # Manually construct buffer state for precise cursor positioning before moves
+    # Manually construct buffer state for precise cursor positioning
     buf._rope = Rope("\n".join(text_lines))
 
     # Start at end of "long line|" -> (0,9)
     buf.cursor.row = 0
     buf.cursor.col = 9
-    buf.move_cursor_down()  # Move to "short", cursor should be at end "short|" -> (1,5)
+    # Move to "short", cursor should be at end "short|" -> (1,5)
+    buf.move_cursor_down()
     assert buf.get_cursor_position() == Position(1, 5)
 
     # Reset cursor to end of "longer line|" -> (2,11)
     buf.cursor.row = 2
     buf.cursor.col = 11
-    buf.move_cursor_up()  # Move to "short", cursor should be at end "short|" -> (1,5)
+    # Move to "short", cursor should be at end "short|" -> (1,5)
+    buf.move_cursor_up()
     assert buf.get_cursor_position() == Position(1, 5)
     # From (1,5) ("short|"), move up to "long line"
-    # Original col was 5 (from being on "short" at col 5). Max col on line 0 is 9.
+    # Original col was 5 (from being on "short" at col 5).
+    # Max col on line 0 is 9.
     # Cursor should go to (0,5) which is "long |line"
     buf.move_cursor_up()
     assert buf.get_cursor_position() == Position(0, 5)

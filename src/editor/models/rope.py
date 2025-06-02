@@ -3,7 +3,7 @@ A Rope data structure for efficient text storage and manipulation.
 A tree-based data structure optimized for text editing operations.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass  # noqa: F401
 from typing import Optional
 
 
@@ -15,9 +15,7 @@ class RopeMetrics:
     """Metrics about a rope node including length and line information"""
 
     length: int  # Total length in characters
-    # Consistent with len(text.split('\\n'))
     line_count: int
-    # Length of the last line segment from text.split('\\n')
     last_line_length: int
 
     @staticmethod
@@ -27,14 +25,15 @@ class RopeMetrics:
         # "" -> lines=[""], lc=1, lll=0
         # "\\n" -> lines=["",""], lc=2, lll=0
 
-        # Re-split for actual logic, in case debug print had side effects
-        lines = text.split("\n")  # (it shouldn't)
+        lines = text.split("\n")
         _length = len(text)
         _line_count = len(lines)
         _last_line_length = len(lines[-1])
 
         return RopeMetrics(
-            length=_length, line_count=_line_count, last_line_length=_last_line_length
+            length=_length,
+            line_count=_line_count,
+            last_line_length=_last_line_length,
         )
 
     def __add__(self, other: "RopeMetrics") -> "RopeMetrics":
@@ -77,7 +76,9 @@ class RopeMetrics:
                 _last_line_length = other.last_line_length
 
         return RopeMetrics(
-            length=_length, line_count=_line_count, last_line_length=_last_line_length
+            length=_length,
+            line_count=_line_count,
+            last_line_length=_last_line_length,
         )
 
 
@@ -121,7 +122,6 @@ class LeafNode(RopeNode):
             pass
 
     def _compute_metrics(self) -> RopeMetrics:
-        # For debugging purposes, we used to print the text and metrics here
         metrics = RopeMetrics.from_text(self.text)
         return metrics
 
