@@ -3,7 +3,7 @@ Manages file input/output operations for the text editor.
 """
 
 import sys
-from editor.models.text_buffer import TextBuffer  # Position removed as it seems unused
+from editor.models.text_buffer import TextBuffer
 
 
 class FileManager:
@@ -18,35 +18,9 @@ class FileManager:
         Args:
             text_buffer: The TextBuffer to be used for file operations.
         """
-        # Diagnostic prints
-        actual_text_buffer_module = sys.modules.get("editor.models.text_buffer")
-        imported_text_buffer_class_id = id(TextBuffer)
-
-        print("--- FileManager Debug ---", file=sys.stderr)
-        print(f"Received text_buffer type: {type(text_buffer)}", file=sys.stderr)
-        print(
-            f"Checking against TextBuffer class: {TextBuffer} (id: {imported_text_buffer_class_id}) "
-            f"from module: {actual_text_buffer_module}",
-            file=sys.stderr,
-        )
-
-        is_instance = isinstance(text_buffer, TextBuffer)
-        print(f"isinstance(text_buffer, TextBuffer) result: {is_instance}", file=sys.stderr)
-
-        if not is_instance:
-            # If it's a mock, let's see its spec if possible
-            if hasattr(text_buffer, "_spec_class"):  # unittest.mock internal
-                print(
-                    f"Mock's _spec_class: {text_buffer._spec_class} " f"(id: {id(text_buffer._spec_class)})", file=sys.stderr
-                )
-            elif hasattr(text_buffer, "spec"):  # some mock libraries
-                print(f"Mock's spec: {text_buffer.spec}", file=sys.stderr)
-            print("--- End FileManager Debug (Error Path) ---", file=sys.stderr)
-            raise TypeError(
-                f"text_buffer must be an instance of TextBuffer. " f"Got type {type(text_buffer)}, expected {TextBuffer}."
-            )
+        if not isinstance(text_buffer, TextBuffer):
+            raise TypeError("text_buffer must be an instance of TextBuffer")
         self._text_buffer = text_buffer
-        print("--- End FileManager Debug (Success Path) ---", file=sys.stderr)
 
     def load_from_txt(self, filepath: str):
         """

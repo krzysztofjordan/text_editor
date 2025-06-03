@@ -2,9 +2,8 @@
 
 import pytest
 from unittest.mock import MagicMock  # For older style mocking if needed, but prefer pytest-mock
-from editor.models.text_buffer import TextBuffer as MockTargetTextBuffer  # aliasing to avoid PytestCollectionWarning
+from editor.models.text_buffer import TextBuffer as BufferClass  # aliased to avoid pytest collection
 from editor.io.file_manager import FileManager
-import sys  # For checking sys.stderr output
 
 # No need for MockObserver here as we will mock TextBuffer methods directly
 
@@ -12,28 +11,7 @@ import sys  # For checking sys.stderr output
 @pytest.fixture
 def mock_text_buffer(mocker):
     """Provides a MagicMock instance for TextBuffer."""
-    print("--- Test Fixture Debug ---", file=sys.stderr)
-    print(
-        f"Mocking with TextBuffer class: {MockTargetTextBuffer} "
-        f"(id: {id(MockTargetTextBuffer)}) "
-        f"from module: {MockTargetTextBuffer.__module__}",
-        file=sys.stderr,
-    )
-    mock_buffer = mocker.MagicMock(spec=MockTargetTextBuffer)
-    is_instance_in_fixture = isinstance(mock_buffer, MockTargetTextBuffer)
-    # This check should pass if mocker.MagicMock(spec=...) works as expected for isinstance.
-    print(f"In fixture, isinstance(mock_buffer, MockTargetTextBuffer) result: {is_instance_in_fixture}", file=sys.stderr)
-    if hasattr(mock_buffer, "_spec_class"):  # unittest.mock internal attribute
-        print(
-            f"Mock's _spec_class: {mock_buffer._spec_class} "
-            f"(id: {id(mock_buffer._spec_class)}) "
-            f"from module: {mock_buffer._spec_class.__module__}",
-            file=sys.stderr,
-        )
-    print("--- End Test Fixture Debug ---", file=sys.stderr)
-    # Configure common return values if needed, e.g.
-    # mock_buffer.get_all_text.return_value = ""
-    # mock_buffer.get_cursor_position.return_value = Position(0,0)
+    mock_buffer = mocker.MagicMock(spec=BufferClass)
     return mock_buffer
 
 
@@ -132,7 +110,6 @@ def test_load_from_txt_read_io_error(file_manager_with_mock_buffer, mock_text_bu
     assert error_filepath_str in captured.err
 
 
-# Test FileManager constructor type checking (copied from previous iteration as it's good)
 def test_file_manager_constructor_type_error():
     """Test that FileManager constructor raises TypeError for wrong buffer type."""
     with pytest.raises(TypeError, match="text_buffer must be an instance of TextBuffer"):
@@ -141,8 +118,8 @@ def test_file_manager_constructor_type_error():
     # Should not raise for a valid (even if mock) TextBuffer or a real one
     try:
         # Using unittest.mock for variety, and the aliased TextBuffer
-        mock_buffer_unittest = MagicMock(spec=MockTargetTextBuffer)
+        mock_buffer_unittest = MagicMock(spec=BufferClass)
         FileManager(mock_buffer_unittest)
-        FileManager(MockTargetTextBuffer())  # Real TextBuffer instance
+        FileManager(BufferClass())  # Real TextBuffer instance
     except TypeError:
         pytest.fail("FileManager raised TypeError unexpectedly with a valid TextBuffer or mock.")
