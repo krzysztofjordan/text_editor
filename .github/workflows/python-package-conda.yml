@@ -10,74 +10,63 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install OS dependencies (Node.js, Tkinter, Xvfb)
+    
+    - name: Install OS dependencies (Tkinter, Xvfb)
+      # Node.js might not be strictly needed anymore if all actions are Conda-based
+      # but keeping it for now in case any underlying GitHub Action mechanism uses it.
       run: |
         sudo apt-get update -y && \
         sudo apt-get install -y nodejs npm tk-dev tcl-dev xvfb
-    
-    - name: Setup Miniconda
+
+    - name: Setup Conda Environment
       uses: conda-incubator/setup-miniconda@v3
       with:
-        python-version: "3.10"
+        activate-environment: text-editor-env # Name from environment.yml
+        environment-file: environment.yml
+        python-version: "3.10" # Ensures the created env has this Python if not in yml
         auto-update-conda: true
-        activate-environment: base
 
-    - name: Install Conda dependencies
+    # All subsequent steps will use the activated Conda environment
+    # The shell: bash -l {0} ensures the Conda env is sourced for each step.
+
+    - name: Install project (editable mode)
       shell: bash -l {0}
-      run: |
-        echo "Updating Conda env: base"
-        conda env update --file environment.yml --name base
-        echo "Python from Conda env (after update): $(which python)"
-        echo "Flake8 in Conda env (after update): $(which flake8 || echo 'flake8 not found directly')"
-        echo "Conda environment PATH: $CONDA_PREFIX/bin"
-
-    # Setup specific Python version for testing using actions/setup-python
-    - name: Set up Python 3.10 for testing
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.10'
-    
-    - name: Install test dependencies (pytest, pytest-xdist) into test Python
-      run: |
-        echo "Python for installing test tools: $(which python)"
-        echo "Pip for installing test tools: $(which pip)"
-        pip install pytest pytest-xdist
-
-    - name: Install project into test Python
       run: |
         echo "Python for pip install -e: $(which python)"
         pip install -e . -v
-        echo "--- Installed packages (pip list) in test Python ---"
+        echo "--- Installed packages (pip list) ---"
         pip list
         echo "PYTHONPATH (before explicit set): $PYTHONPATH"
 
     - name: Set PYTHONPATH for tests
+      # This might still be needed if pytest within Conda has issues with src-layout
+      shell: bash -l {0}
       run: |
         echo "Setting PYTHONPATH to ${{ github.workspace }}/src"
         echo "PYTHONPATH=${{ github.workspace }}/src:$PYTHONPATH" >> $GITHUB_ENV
 
-    - name: Test import before pytest (using test Python)
+    - name: Test import before pytest
+      shell: bash -l {0}
       run: |
         echo "Current PYTHONPATH: $PYTHONPATH"
         echo "Python for direct import test: $(which python)"
         xvfb-run python -c "import sys; print(f'Python sys.path: {sys.path}'); import editor; print('Successfully imported editor module'); import tkinter; root = tkinter.Tk(); print(f'Tkinter root: {root}'); root.destroy(); print('Successfully imported and initialized/destroyed tkinter root')"
     
-    - name: Lint with flake8 (using Conda env)
+    - name: Lint with flake8
       shell: bash -l {0}
       run: |
         echo "Python for flake8: $(which python)"
         echo "Flake8 from PATH: $(which flake8 || echo 'flake8 not directly on PATH')"
-        echo "Attempting to run flake8..."
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || \
         (echo "flake8 direct command failed, trying python -m flake8" && python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics)
         
-        echo "Attempting to run flake8 with exit-zero..."
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics || \
         (echo "flake8 (exit-zero) direct command failed, trying python -m flake8" && python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics)
 
-    - name: Test with pytest (using test Python)
+    - name: Test with pytest
+      shell: bash -l {0}
       run: |
         echo "Current PYTHONPATH: $PYTHONPATH"
-        echo "Python for pytest step: $(which python)" # Should be actions/setup-python's Python
+        echo "Python for pytest step: $(which python)"
         echo "Pytest from module path: $(python -m pytest --version)"
         xvfb-run python -m pytest 
