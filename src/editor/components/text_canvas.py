@@ -140,9 +140,22 @@ class TextCanvas(tk.Canvas):
         # Draw blinking cursor
         if self.cursor_visible:
             cursor_pos = self.buffer.get_cursor_position()
-            x = self.text_x + (cursor_pos.col * self.char_width)
-            y = self.text_y + (cursor_pos.row * self.line_height)
-            self.create_text(x, y, text="|", font=self.font, anchor="nw")
+            cursor_render_x = self.text_x + (cursor_pos.col * self.char_width)
+            cursor_render_y_start = self.text_y + (cursor_pos.row * self.line_height)
+            cursor_render_y_end = cursor_render_y_start + self.line_height
+
+            # Use a contrasting color for the cursor (e.g., white for dark background)
+            # TODO: Make cursor color theme-aware
+            cursor_color = "white"
+
+            self.create_line(
+                cursor_render_x,
+                cursor_render_y_start,
+                cursor_render_x,
+                cursor_render_y_end,
+                fill=cursor_color,
+                width=1,  # Explicitly set cursor width to 1 pixel
+            )
 
         # Draw scrollbar if needed
         if self.buffer.get_line_count() > visible_lines:
