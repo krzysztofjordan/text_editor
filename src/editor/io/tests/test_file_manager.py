@@ -1,28 +1,50 @@
 """Tests for the FileManager class"""
 
 import pytest
-from unittest.mock import MagicMock # For older style mocking if needed, but prefer pytest-mock
-from editor.models.text_buffer import TextBuffer # Actual TextBuffer for some tests
+from unittest.mock import MagicMock  # For older style mocking if needed, but prefer pytest-mock
+from editor.models.text_buffer import TextBuffer as MockTargetTextBuffer  # aliasing to avoid PytestCollectionWarning
 from editor.io.file_manager import FileManager
-import sys # For checking sys.stderr output
+import sys  # For checking sys.stderr output
 
 # No need for MockObserver here as we will mock TextBuffer methods directly
+
 
 @pytest.fixture
 def mock_text_buffer(mocker):
     """Provides a MagicMock instance for TextBuffer."""
-    mock_buffer = mocker.MagicMock(spec=TextBuffer)
+    print("--- Test Fixture Debug ---", file=sys.stderr)
+    print(
+        f"Mocking with TextBuffer class: {MockTargetTextBuffer} "
+        f"(id: {id(MockTargetTextBuffer)}) "
+        f"from module: {MockTargetTextBuffer.__module__}",
+        file=sys.stderr,
+    )
+    mock_buffer = mocker.MagicMock(spec=MockTargetTextBuffer)
+    is_instance_in_fixture = isinstance(mock_buffer, MockTargetTextBuffer)
+    # This check should pass if mocker.MagicMock(spec=...) works as expected for isinstance.
+    print(f"In fixture, isinstance(mock_buffer, MockTargetTextBuffer) result: {is_instance_in_fixture}", file=sys.stderr)
+    if hasattr(mock_buffer, "_spec_class"):  # unittest.mock internal attribute
+        print(
+            f"Mock's _spec_class: {mock_buffer._spec_class} "
+            f"(id: {id(mock_buffer._spec_class)}) "
+            f"from module: {mock_buffer._spec_class.__module__}",
+            file=sys.stderr,
+        )
+    print("--- End Test Fixture Debug ---", file=sys.stderr)
     # Configure common return values if needed, e.g.
     # mock_buffer.get_all_text.return_value = ""
     # mock_buffer.get_cursor_position.return_value = Position(0,0)
     return mock_buffer
+
 
 @pytest.fixture
 def file_manager_with_mock_buffer(mock_text_buffer):
     """Provides a FileManager instance initialized with a mocked TextBuffer."""
     return FileManager(mock_text_buffer)
 
+
 # --- Tests for save_to_txt ---
+
 
 def test_save_to_txt_success(file_manager_with_mock_buffer, mock_text_buffer, tmp_path):
     """Test successfully saving content to a file using a mock TextBuffer."""
@@ -40,6 +62,7 @@ def test_save_to_txt_success(file_manager_with_mock_buffer, mock_text_buffer, tm
         read_content = f.read()
     assert read_content == content_to_save
 
+
 def test_save_to_txt_os_error(file_manager_with_mock_buffer, mock_text_buffer, tmp_path, capsys):
     """Test save_to_txt with an OS error using a mock TextBuffer."""
     mock_text_buffer.get_all_text.return_value = "Some content"
@@ -54,10 +77,11 @@ def test_save_to_txt_os_error(file_manager_with_mock_buffer, mock_text_buffer, t
 
     captured = capsys.readouterr()
     assert "Error saving file to" in captured.err
-    assert str(tmp_path) in captured.err # Check if the path is in the error message
+    assert str(tmp_path) in captured.err  # Check if the path is in the error message
 
 
 # --- Tests for load_from_txt ---
+
 
 def test_load_from_txt_success(file_manager_with_mock_buffer, mock_text_buffer, tmp_path):
     """Test successfully loading content and calling set_content on mock TextBuffer."""
@@ -70,6 +94,7 @@ def test_load_from_txt_success(file_manager_with_mock_buffer, mock_text_buffer, 
 
     # Verify set_content was called on the mock with the correct data
     mock_text_buffer.set_content.assert_called_once_with(file_content)
+
 
 def test_load_from_txt_file_not_found(file_manager_with_mock_buffer, mock_text_buffer, capsys):
     """Test load_from_txt with a non-existent file; set_content should not be called."""
@@ -84,6 +109,7 @@ def test_load_from_txt_file_not_found(file_manager_with_mock_buffer, mock_text_b
     assert "Error: File not found at" in captured.err
     assert non_existent_filepath in captured.err
 
+
 def test_load_from_txt_read_io_error(file_manager_with_mock_buffer, mock_text_buffer, tmp_path, capsys, mocker):
     """Test load_from_txt with an IOError during file read; set_content should not be called."""
     error_filepath_str = str(tmp_path / "read_error_mock.txt")
@@ -92,7 +118,7 @@ def test_load_from_txt_read_io_error(file_manager_with_mock_buffer, mock_text_bu
         f_dummy.write("dummy content for successful open")
 
     # Configure the mock for open() to raise error on read
-    mock_open_function = mocker.patch('builtins.open', mocker.mock_open())
+    mock_open_function = mocker.patch("builtins.open", mocker.mock_open())
     mock_open_function.return_value.__enter__.return_value.read.side_effect = IOError("Simulated read error")
 
     file_manager_with_mock_buffer.load_from_txt(error_filepath_str)
@@ -101,9 +127,10 @@ def test_load_from_txt_read_io_error(file_manager_with_mock_buffer, mock_text_bu
     mock_text_buffer.set_content.assert_not_called()
 
     captured = capsys.readouterr()
-    assert "Error reading file" in captured.err # Matches the error message in FileManager
+    assert "Error reading file" in captured.err  # Matches the error message in FileManager
     assert "Simulated read error" in captured.err
     assert error_filepath_str in captured.err
+
 
 # Test FileManager constructor type checking (copied from previous iteration as it's good)
 def test_file_manager_constructor_type_error():
@@ -113,8 +140,9 @@ def test_file_manager_constructor_type_error():
 
     # Should not raise for a valid (even if mock) TextBuffer or a real one
     try:
-        mock_buffer = MagicMock(spec=TextBuffer) # Using unittest.mock for variety
-        FileManager(mock_buffer)
-        FileManager(TextBuffer()) # Real TextBuffer
+        # Using unittest.mock for variety, and the aliased TextBuffer
+        mock_buffer_unittest = MagicMock(spec=MockTargetTextBuffer)
+        FileManager(mock_buffer_unittest)
+        FileManager(MockTargetTextBuffer())  # Real TextBuffer instance
     except TypeError:
         pytest.fail("FileManager raised TypeError unexpectedly with a valid TextBuffer or mock.")
