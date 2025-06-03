@@ -14,46 +14,64 @@ jobs:
       run: |
         sudo apt-get update -y && \
         sudo apt-get install -y nodejs npm tk-dev tcl-dev xvfb
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+    
+    # Setup Conda and cache its environment
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
       with:
-        python-version: '3.10'
-    - name: Install test dependencies (pytest, pytest-xdist)
-      run: |
-        echo "Pip for pytest install: $(which pip)"
-        pip install pytest pytest-xdist
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo "CONDA PATH: $CONDA/bin" # Debugging $CONDA
-        echo $CONDA/bin >> $GITHUB_PATH
+        python-version: "3.10" # Specify Python version for Conda base if needed
+        auto-update-conda: true
+        # channels: conda-forge,defaults # Handled by environment.yml
+
     - name: Install Conda dependencies
       run: |
         conda env update --file environment.yml --name base
-        echo "Python from Conda env update: $(which python)" # Debug which python conda uses
-        echo "Pip from Conda env update: $(which pip)" # Debug which pip conda uses
-    - name: Install project
+        echo "Python from Conda env (after update): $(which python)"
+        echo "Conda environment PATH: $CONDA_PREFIX/bin"
+
+    # Setup specific Python version for testing using actions/setup-python
+    # This Python will be used for installing test tools and running tests.
+    - name: Set up Python 3.10 for testing
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+    
+    - name: Install test dependencies (pytest, pytest-xdist) into test Python
       run: |
-        echo "Python for pip install -e: $(which python)" # Debug which python is used for editable install
+        echo "Python for installing test tools: $(which python)"
+        echo "Pip for installing test tools: $(which pip)"
+        pip install pytest pytest-xdist
+
+    - name: Install project into test Python
+      run: |
+        echo "Python for pip install -e: $(which python)"
         pip install -e . -v
-        echo "--- Installed packages after pip install -e . ---"
+        echo "--- Installed packages (pip list) in test Python ---"
         pip list
-        echo "--- PYTHONPATH after pip install -e . ---"
-        echo "PYTHONPATH IS: $PYTHONPATH"
-    - name: Test import before pytest
+        echo "PYTHONPATH (before explicit set): $PYTHONPATH"
+
+    - name: Set PYTHONPATH for tests
       run: |
+        echo "Setting PYTHONPATH to ${{ github.workspace }}/src"
+        echo "PYTHONPATH=${{ github.workspace }}/src:$PYTHONPATH" >> $GITHUB_ENV
+
+    - name: Test import before pytest (using test Python)
+      run: |
+        echo "Current PYTHONPATH: $PYTHONPATH"
         echo "Python for direct import test: $(which python)"
-        # Test basic Tkinter functionality with Xvfb for early feedback
         xvfb-run python -c "import sys; print(f'Python sys.path: {sys.path}'); import editor; print('Successfully imported editor module'); import tkinter; root = tkinter.Tk(); print(f'Tkinter root: {root}'); root.destroy(); print('Successfully imported and initialized/destroyed tkinter root')"
-    - name: Lint with flake8
+    
+    - name: Lint with flake8 (using Conda env Python)
+      shell: bash -l {0} # Ensure Conda env is activated for this step
       run: |
-        # flake8 should be available from the conda env
         echo "Flake8 from: $(which flake8)"
+        echo "Python for flake8: $(which python)"
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
+
+    - name: Test with pytest (using test Python)
       run: |
-        echo "Pytest from module path: $(python -m pytest --version)" # Check if pytest module is found by this python
-        echo "Python for pytest step: ${{ env.pythonLocation }}/bin/python"
-        # Run pytest under Xvfb
-        xvfb-run ${{ env.pythonLocation }}/bin/python -m pytest 
+        echo "Current PYTHONPATH: $PYTHONPATH"
+        echo "Python for pytest step: $(which python)" # Should be actions/setup-python's Python
+        echo "Pytest from module path: $(python -m pytest --version)"
+        xvfb-run python -m pytest 
