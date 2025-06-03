@@ -629,8 +629,8 @@ def test_unicode_characters(buffer):
     assert buffer.get_line_length(0) == 1
     assert buffer.get_cursor_position() == Position(0, 1)
 
-    # Test inserting newline after unicode
-    buffer.insert_newline()
+    # Test inserting a newline after unicode
+    buffer.insert_newline()  # Cursor at (0,1) "é|"
     assert buffer.get_all_text() == "é\n"
     assert buffer.get_line_count() == 2
     assert buffer.get_line(0) == "é"
@@ -656,3 +656,41 @@ def test_unicode_characters(buffer):
     buf2.insert_char("-")  # ab-世c
     assert buf2.get_all_text() == "ab-世c"
     assert buf2._get_absolute_cursor_position() == 3  # a, b, -
+
+
+def test_clear_method(observed_buffer):
+    """Test that the clear() method resets the buffer and notifies observers."""
+    buffer, observer = observed_buffer
+
+    # 1. Add some content and move cursor
+    buffer.insert_char("L")
+    buffer.insert_char("i")
+    buffer.insert_char("n")
+    buffer.insert_char("e")
+    buffer.insert_char("1")
+    buffer.insert_newline()
+    buffer.insert_char("L")
+    buffer.insert_char("i")
+    buffer.insert_char("n")
+    buffer.insert_char("e")
+    buffer.insert_char("2")
+    # Buffer: "Line1\nLine2", cursor at (1, 5)
+
+    # 2. Reset observer count for the clear() action
+    observer.change_count = 0
+
+    # 3. Call clear()
+    buffer.clear()
+
+    # 4. Assert buffer state
+    assert buffer.get_all_text() == "", "Buffer text should be empty after clear"
+    assert buffer.get_line_count() == 1, "Line count should be 1 after clear"
+    assert buffer.get_line(0) == "", "Line 0 should be empty after clear"
+
+    # 5. Assert cursor position
+    assert buffer.get_cursor_position() == Position(
+        0, 0
+    ), "Cursor should be at (0,0) after clear"
+
+    # 6. Assert observer notification
+    assert observer.change_count == 1, "Observer should be notified once by clear()"

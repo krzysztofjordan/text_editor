@@ -179,3 +179,9 @@ class TextBuffer:
         self.cursor.row = validated_row
         self.cursor.col = validated_col
         self._notify_observers()
+
+    def clear(self):
+        """Clear the entire text buffer and reset cursor position."""
+        self._rope = Rope()  # Re-initialize with a new empty Rope
+        self.cursor = Position(0, 0)
+        self._notify_observers()
