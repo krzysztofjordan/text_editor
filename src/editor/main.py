@@ -1,5 +1,6 @@
 import tkinter as tk
 from editor.components.text_canvas import TextCanvas
+from editor.components.menu_bar import MenuBar
 
 
 class SimpleTextEditor(tk.Tk):
@@ -12,6 +13,9 @@ class SimpleTextEditor(tk.Tk):
         self.text_canvas = TextCanvas(self)
         self.text_canvas.pack(fill=tk.BOTH, expand=1)
         self.text_canvas.focus_set()
+
+        self.menu_bar = MenuBar(self)
+        self.config(menu=self.menu_bar)
 
 
 if __name__ == "__main__":
