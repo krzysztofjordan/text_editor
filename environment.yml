@@ -4,9 +4,11 @@ channels:
   - defaults
 dependencies:
   - python=3.10
-  - pytest
+  # pytest and pytest-xdist will be installed via pip in the GitHub Action
   - flake8
   - black
   - pyyaml
   - tomli # For pyproject.toml parsing on Python < 3.11
   - pre-commit 
+  - pytest
+  - pytest-xdist
