@@ -12,8 +12,8 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install OS dependencies (Node.js, Tkinter, Xvfb)
       run: |
-        apt-get update -y && \
-        apt-get install -y nodejs npm tk-dev tcl-dev xvfb
+        sudo apt-get update -y && \
+        sudo apt-get install -y nodejs npm tk-dev tcl-dev xvfb
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
