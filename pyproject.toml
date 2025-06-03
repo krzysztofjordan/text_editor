@@ -22,7 +22,8 @@ classifiers = [
 dev = [
     "pytest>=7.4.0",
     "black>=24.2.0",
-    "pre-commit>=3.6.0"
+    "pre-commit>=3.6.0",
+    "pytest-mock>=3.14.0"
 ]
 
 [project.scripts]

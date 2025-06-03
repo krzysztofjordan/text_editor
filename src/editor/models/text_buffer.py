@@ -185,3 +185,16 @@ class TextBuffer:
         self._rope = Rope()  # Re-initialize with a new empty Rope
         self.cursor = Position(0, 0)
         self._notify_observers()
+
+    def set_content(self, content: str):
+        """
+        Replaces the entire content of the buffer with the provided string.
+
+        The cursor is reset to Position(0,0), and observers are notified.
+
+        Args:
+            content: The new string content for the buffer.
+        """
+        self._rope = Rope(content)  # Initialize Rope directly with the new content
+        self.cursor = Position(0, 0)   # Reset cursor to the beginning
+        self._notify_observers()       # Notify observers of the change

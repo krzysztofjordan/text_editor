@@ -694,3 +694,78 @@ def test_clear_method(observed_buffer):
 
     # 6. Assert observer notification
     assert observer.change_count == 1, "Observer should be notified once by clear()"
+
+
+def test_set_content_replaces_existing(observed_buffer):
+    """Test that set_content correctly replaces existing buffer content."""
+    buffer, observer = observed_buffer
+    buffer.insert_char("O")
+    buffer.insert_char("l")
+    buffer.insert_char("d")
+    buffer.insert_char(" ")
+    buffer.insert_char("C")
+    buffer.insert_char("o")
+    buffer.insert_char("n")
+    buffer.insert_char("t")
+    buffer.insert_char("e")
+    buffer.insert_char("n")
+    buffer.insert_char("t")
+    # Old Content: "Old Content"
+
+    observer.change_count = 0 # Reset observer for set_content action
+    new_content = "New Content\nWith multiple lines."
+    buffer.set_content(new_content)
+
+    assert buffer.get_all_text() == new_content
+    assert buffer.get_line_count() == 2 # "New Content" is line 0, "With multiple lines." is line 1
+    assert buffer.get_line(0) == "New Content"
+    assert buffer.get_line(1) == "With multiple lines."
+    assert observer.change_count == 1, "Observer should be notified once by set_content()"
+
+def test_set_content_with_empty_string_clears_buffer(observed_buffer):
+    """Test that set_content with an empty string clears the buffer."""
+    buffer, observer = observed_buffer
+    buffer.insert_char("S")
+    buffer.insert_char("o")
+    buffer.insert_char("m")
+    buffer.insert_char("e")
+    buffer.insert_char("t")
+    buffer.insert_char("h")
+    buffer.insert_char("i")
+    buffer.insert_char("n")
+    buffer.insert_char("g")
+    # Buffer has "Something"
+
+    observer.change_count = 0
+    buffer.set_content("") # Set to empty string
+
+    assert buffer.get_all_text() == ""
+    assert buffer.get_line_count() == 1 # An empty buffer has one empty line
+    assert buffer.get_line(0) == ""
+    assert observer.change_count == 1
+
+def test_set_content_resets_cursor(buffer): # Using non-observed buffer for simplicity
+    """Test that the cursor is reset to Position(0,0) after set_content."""
+    buffer.insert_char("a") # Make content non-empty
+    buffer.insert_newline()
+    buffer.insert_char("b") # Content "a\nb", cursor at (1,1)
+    assert buffer.get_cursor_position() == Position(1,1)
+
+    buffer.set_content("New text")
+    assert buffer.get_cursor_position() == Position(0,0), "Cursor should be at (0,0) after set_content"
+
+    buffer.set_content("") # Also for empty content
+    assert buffer.get_cursor_position() == Position(0,0), "Cursor should be at (0,0) after set_content with empty string"
+
+def test_set_content_notifies_observers(observed_buffer):
+    """Test that observers are notified when set_content is called."""
+    buffer, observer = observed_buffer
+    buffer.insert_char("Initial") # Some initial content
+
+    observer.change_count = 0 # Reset count
+    buffer.set_content("New data")
+    assert observer.change_count == 1, "Observer should be notified by set_content"
+
+    observer.change_count = 0 # Reset count
+    buffer.set_content("") # Also notify for setting empty content
+    assert observer.change_count == 1, "Observer should be notified by set_content with empty string"
