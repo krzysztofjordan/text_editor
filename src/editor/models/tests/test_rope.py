@@ -365,3 +365,168 @@ def test_rope_metrics_add_logic():
     assert (
         res7_2.last_line_length == 0
     ), f"C7.2 LLL: {res7_2.last_line_length}"  # m_nl_only is right part
+
+
+def test_get_line_recursive_paths_manually_constructed_rope():
+    """Test get_line with manually constructed ropes to hit recursive paths."""
+
+    # Case 1: Line entirely in left child
+    # Rope: L0\nL1 | R0\nR1 (where | is node boundary)
+    # Lines: "L0", "L1", "R0", "R1"
+    leaf_l1 = LeafNode("L0\nL1\n")  # Ensures a newline between L1 and R0
+    leaf_r1 = LeafNode("R0\nR1")
+    rope1 = Rope(InternalNode(leaf_l1, leaf_r1))
+    assert rope1.get_line_count() == 4, "Case 1: Line count"
+    assert rope1.get_line(0) == "L0", "Case 1: Get L0"
+    assert rope1.get_line(1) == "L1", "Case 1: Get L1"
+    # These will test Path 3 with left ending in NL
+    assert rope1.get_line(2) == "R0", "Case 1: Get R0 (Path 3 via left ending NL)"
+    assert rope1.get_line(3) == "R1", "Case 1: Get R1 (Path 3 via left ending NL)"
+
+    # Case 2: Line spans from left to right (left does NOT end in \n)
+    # Rope: L0_part1 | _L0_part2\nR1
+    # Lines: "L0_part1_L0_part2", "R1"
+    leaf_l2 = LeafNode("L0_part1")
+    leaf_r2 = LeafNode("_L0_part2\nR1")
+    rope2 = Rope(InternalNode(leaf_l2, leaf_r2))
+    assert rope2.get_line_count() == 2, "Case 2: Line count"
+    assert rope2.get_line(0) == "L0_part1_L0_part2", "Case 2: Get spanned line"
+    # This will test Path 3 with left NOT ending in NL
+    assert rope2.get_line(1) == "R1", "Case 2: Get R1 (Path 3 via left not ending NL)"
+
+    # Case 3: Line is last of left, left DOES end in \n (empty line)
+    # Rope: L0\nL1\n | R0\nR1 -> effectively L0\nL1\n\nR0\R1 for 5 lines
+    # Lines: "L0", "L1", "", "R0", "R1"
+    leaf_l3 = LeafNode("L0\nL1\n\n")  # Ends in double newline for empty line test
+    leaf_r3 = LeafNode("R0\nR1")
+    rope3 = Rope(InternalNode(leaf_l3, leaf_r3))
+    assert rope3.get_line_count() == 5, "Case 3: Line count"
+    assert rope3.get_line(0) == "L0", "Case 3: Get L0"
+    assert rope3.get_line(1) == "L1", "Case 3: Get L1"
+    assert rope3.get_line(2) == "", "Case 3: Get empty line from left's trailing NL"
+    assert rope3.get_line(3) == "R0", "Case 3: Get R0"
+    assert rope3.get_line(4) == "R1", "Case 3: Get R1"
+
+    # Case 4: More complex tree (nested InternalNodes)
+    # Structure: ((A\nB | C) | (D\nE | F\nG))
+    # Text: A\nBC\nD\nEF\nG
+    # Lines:
+    # 0: A
+    # 1: BC
+    # 2: D
+    # 3: EF
+    # 4: G
+    node_a = LeafNode("A\nB")  # lc=2, lll=1 ("B")
+    node_b = LeafNode("C")  # lc=1, lll=1 ("C")
+    node_c = LeafNode("D\nE")  # lc=2, lll=1 ("E")
+    node_d = LeafNode("F\nG")  # lc=2, lll=1 ("G")
+
+    # Metrics recap for InternalNode path logic (simplified):
+    # Path 1 (in left): query < left.lc - 1
+    # Path 2 (span/last of left): query == left.lc - 1
+    # Path 3 (in right): query > left.lc - 1
+    #   adj = query - (left.lc - 1)
+
+    # Inner left node: (A\nB | C) -> text "A\nBC", lc=2, lll=2 ("BC")
+    inner_left = InternalNode(node_a, node_b)
+    # Check inner_left construction:
+    # node_a metrics: len=3, lc=2, lll=1 ("B")
+    # node_b metrics: len=1, lc=1, lll=1 ("C")
+    # Combined (A\nB + C): len=4. Ends in newline? No (B + C). lc = (2-1)+1 = 2.
+    # lll = 1+1=2 ("BC")
+    assert inner_left.metrics.line_count == 2
+    assert inner_left.metrics.last_line_length == 2
+    assert inner_left.get_text() == "A\nBC"
+
+    # Inner right node: (D\nE | F\nG) -> text "D\nEF\nG", lc=3, lll=1 ("G")
+    inner_right = InternalNode(node_c, node_d)
+    # Check inner_right construction:
+    # node_c metrics: len=3, lc=2, lll=1 ("E")
+    # node_d metrics: len=3, lc=2, lll=1 ("G")
+    # Combined (D\nE + F\nG): len=6. Ends in newline? No (E+F).
+    # lc = (2-1)+2=3. lll=1 ("G") -> (EF+G)
+    #   Line 0: D. Line 1: EF. Line 2: G (EFG if no NL in F)
+    #   D\nE + F\nG => D\nEF\nG. lc=3, lll=1 ("G") (Correct)
+    assert inner_right.metrics.line_count == 3
+    assert inner_right.metrics.last_line_length == 1
+    assert inner_right.get_text() == "D\nEF\nG"
+
+    # Root node: (inner_left | inner_right)
+    # inner_left: "A\nBC" (lc=2, lll=2)
+    # inner_right: "D\nEF\nG" (lc=3, lll=1)
+    # Combined: "A\nBC" + "D\nEF\nG" => "A\nBCD\nEF\nG"
+    #   lc = (2-1) + 3 = 4. lll=1 ("G")
+    #   Line 0: A. Line 1: BCD. Line 2: EF. Line 3: G.
+    #   This is WRONG vs structure: A, BC, D, EF, G.
+    #   Text concat for RopeMetrics seems too simple.
+    #   RopeMetrics.__add__ lc: (slc + olc -1) if no trail NL. This is for TEXT.
+    #   Metrics for root_complex based on text "A\nBCD\nEF\nG" is (2-1)+3=4 lines.
+
+    root_complex = InternalNode(inner_left, inner_right)
+    rope4 = Rope(root_complex)
+    # Expected text: "A\nBC" + "D\nEF\nG" = "A\nBCD\nEF\nG"
+    # Expected lines: "A", "BCD", "EF", "G"
+    # Expected line_count: 4
+    assert rope4.get_text() == "A\nBCD\nEF\nG"
+    assert rope4.get_line_count() == 4, "Case 4: Complex tree line count"
+
+    # Test lines for complex tree
+    assert rope4.get_line(0) == "A", "Complex tree line 0 (A)"
+    # Query idx=0: inner_left.lc-1 = 2-1 = 1. 0 < 1. Path 1 (left).
+    #   inner_left gets 0. node_a.lc-1 = 2-1=1. 0 < 1. Path 1 (node_a).
+    #     node_a gets 0. Returns "A".
+
+    assert rope4.get_line(1) == "BCD", "Complex tree line 1 (BCD)"
+    # Query idx=1: inner_left.lc-1 = 1. 1 == 1. Path 2 (span/last of inner_left).
+    #   inner_left gets 1.
+    #     node_a.lc-1 = 1. 1 == 1. Path 2 (span/last of node_a).
+    #       node_a gets 1. Returns "B".
+    #       node_a.lll > 0 (true, it's 1 for "B").
+    #       inner_left calls node_b._get_line_recursive(0). Returns "C".
+    #       So inner_left._get_line_recursive(1) returns "BC".
+    #       This is `line_str` for root call.
+    #   inner_left.lll > 0 (true, it's 2 for "BC").
+    #   root calls inner_right._get_line_recursive(0).
+    #     inner_right gets 0.
+    #       node_c.lc-1 = 1. 0 < 1. Path 1 (node_c).
+    #         node_c gets 0. Returns "D".
+    #   So root concatenates "BC" + "D" = "BCD". Correct.
+
+    assert rope4.get_line(2) == "EF", "Complex tree line 2 (EF)"
+    # Query idx=2: inner_left.lc-1 = 1. 2 > 1. Path 3 (right).
+    #   adj_idx = 2 - (inner_left.lc-1) = 2 - (2-1) = 1.
+    #   inner_right gets 1.
+    #     node_c.lc-1 = 1. 1 == 1. Path 2 (span/last of node_c).
+    #       node_c gets 1. Returns "E".
+    #       node_c.lll > 0 (true, it's 1 for "E").
+    #       inner_right calls node_d._get_line_recursive(0). Returns "F".
+    #       So inner_right._get_line_recursive(1) returns "EF". Correct.
+
+    assert rope4.get_line(3) == "G", "Complex tree line 3 (G)"
+    # Query idx=3: inner_left.lc-1 = 1. 3 > 1. Path 3 (right).
+    #   adj_idx = 3 - (inner_left.lc-1) = 3 - (2-1) = 2.
+    #   inner_right gets 2.
+    #     node_c.lc-1 = 1. 2 > 1. Path 3 (right of node_c).
+    #       adj_idx_for_node_d = 2 - (node_c.lc-1) = 2 - (2-1) = 1.
+    #       node_d gets 1. Returns "G". Correct.
+
+    # Test with only newlines
+    rope_nlnl = Rope(InternalNode(LeafNode("\n"), LeafNode("\n")))
+    # Text: "\n\n", lc=3. Lines: "", "", ""
+    assert rope_nlnl.get_line_count() == 3, "NLNL: Line count"
+    assert rope_nlnl.get_line(0) == "", "NLNL: line 0"
+    assert rope_nlnl.get_line(1) == "", "NLNL: line 1"
+    assert rope_nlnl.get_line(2) == "", "NLNL: line 2"
+
+    # Test with text then newlines
+    # L: "A\nB" (lc2,lll1), R: "\nC" (lc2,lll1)
+    # Expected Text: A\nB\nC. Expected Lines: A, B, C. Expected LC = 3.
+    # Metrics: (A\nB).lc=2, (\nC).lc=2. Combined LC = (2-1)+2 = 3. Correct.
+    # (A\nB).lll = 1 ("B").
+    # Path 2 (line 1): B + "" = "B". Path 3 (line 2): "C". Correct.
+    rope_text_nl = Rope(InternalNode(LeafNode("A\nB"), LeafNode("\nC")))
+    assert rope_text_nl.get_text() == "A\nB\nC"
+    assert rope_text_nl.get_line_count() == 3, "TextNL: Line count"
+    assert rope_text_nl.get_line(0) == "A", "TextNL: line 0 (A)"
+    assert rope_text_nl.get_line(1) == "B", "TextNL: line 1 (B)"
+    assert rope_text_nl.get_line(2) == "C", "TextNL: line 2 (C)"

@@ -95,6 +95,12 @@ class RopeNode:
         """Split this node at index, returning two new nodes (left, right)"""
         raise NotImplementedError
 
+    def _get_line_recursive(self, target_line_idx: int) -> str:
+        """Recursively get the text of a specific line index within this node.
+        target_line_idx is 0-indexed relative to the document start.
+        """
+        raise NotImplementedError
+
 
 class LeafNode(RopeNode):
     """Leaf node containing actual text"""
@@ -120,6 +126,18 @@ class LeafNode(RopeNode):
         if index < 0 or index > self.metrics.length:
             raise IndexError("Split index out of bounds for LeafNode")
         return LeafNode(self.text[:index]), LeafNode(self.text[index:])
+
+    def _get_line_recursive(self, target_line_idx: int) -> str:
+        # target_line_idx is relative to this leaf, or 0 if leaf starts the line
+        # and InternalNode passes global index for line 0 of this node.
+        lines = self.text.split("\n")
+        if 0 <= target_line_idx < len(lines):
+            return lines[target_line_idx]
+        # This path indicates an issue or an unexpected state.
+        raise IndexError(
+            f"LeafNode: target_line_idx {target_line_idx} out of bounds"
+            f" for {len(lines)} lines."
+        )
 
 
 class InternalNode(RopeNode):
@@ -161,6 +179,53 @@ class InternalNode(RopeNode):
         else:  # index == left_len, split is exactly between left and right
             return self.left, self.right
 
+    def _get_line_recursive(self, query_line_idx: int) -> str:
+        left_metrics = self.left.metrics
+        # Determine if the left child's text effectively ends with a newline character.
+        # This is true if its last line has zero length AND it's not an empty string
+        # (i.e., line_count > 1 for cases like "\\n", distinguishing from "").
+        left_ends_in_newline_char = (
+            left_metrics.last_line_length == 0 and left_metrics.line_count > 1
+        )
+
+        if left_ends_in_newline_char:
+            # If left child ends with a newline:
+            # It contributes `left_metrics.line_count - 1` full lines.
+            # Its trailing newline acts as a separator.
+            # Lines from the right child follow these full lines.
+            num_full_lines_from_left = left_metrics.line_count - 1
+            if query_line_idx < num_full_lines_from_left:
+                # Line is one of the full lines from the left child.
+                return self.left._get_line_recursive(query_line_idx)
+            else:
+                # Line is from the right child.
+                # Adjust index: query_idx - (number of full lines taken by left).
+                adjusted_idx = query_line_idx - num_full_lines_from_left
+                return self.right._get_line_recursive(adjusted_idx)
+        else:
+            # Left child's text does NOT end with a newline (e.g., "abc", or "").
+            # Its last line will combine with the first line of the right child.
+            idx_of_last_line_in_left = left_metrics.line_count - 1
+
+            if query_line_idx < idx_of_last_line_in_left:
+                # Path 1: Line is purely in the left child, before its last line.
+                return self.left._get_line_recursive(query_line_idx)
+            elif query_line_idx == idx_of_last_line_in_left:
+                # Path 2: Line is the last line of the left,
+                # spanning with the first of right.
+                line_str = self.left._get_line_recursive(query_line_idx)
+                # The first line of the right child is always part of the span here.
+                return line_str + self.right._get_line_recursive(0)
+            else:  # query_line_idx > idx_of_last_line_in_left
+                # Path 3: Purely in right, after the span.
+                # Index for right is relative to lines *after* left's last line.
+                # E.g., Left("A\\nB"), Right("C\\nD"). Query "D" (global idx 2).
+                # Spanned "BC" is global idx 1 (idx_of_last_line_in_left).
+                # adj_idx for "D" = global_idx(2) - idx_of_last_line_in_left(1) = 1.
+                # So right.get_line(1) gives "D".
+                adj_idx = query_line_idx - idx_of_last_line_in_left
+                return self.right._get_line_recursive(adj_idx)
+
 
 class Rope:
     """A rope data structure for efficient text storage and manipulation"""
@@ -192,37 +257,11 @@ class Rope:
         return self.root.metrics.line_count
 
     def get_line(self, line_num: int) -> str:
-        """Get text of a specific line.
-
-        Currently, this method retrieves the full text and splits it by newlines.
-        A future optimization would be to traverse the rope structure directly
-        using line metrics for more efficient access.
-        """
-        # Validate line_num against the metrics-based line count.
+        """Get text of a specific line using efficient tree traversal."""
         if not (0 <= line_num < self.get_line_count()):
-            # For additional robustness, especially during development or if metrics
-            # could be suspect, one might double-check against text.split() here.
-            # However, for typical operation, trust metrics from self.get_line_count().
             raise IndexError(f"Line number {line_num} out of range.")
 
-        # Efficient line retrieval by traversing the rope is a TODO.
-        # For now, using string splitting for simplicity and correctness.
-        text = self.get_text()
-        lines = text.split("\n")
-
-        # This check ensures that if line_num was valid according to metrics,
-        # it should also be valid for the split lines. If not, it implies
-        # a discrepancy between metrics and actual text content.
-        if line_num >= len(lines):
-            # This should ideally not be reached if metrics are accurate.
-            # Handling potential edge case for an empty rope giving lines = [""]
-            if line_num == 0 and self.root.metrics.length == 0:
-                return ""
-            # If still out of bounds, it indicates an internal inconsistency.
-            raise IndexError(
-                f"Metrics/text content mismatch: line {line_num} vs {len(lines)} lines"
-            )
-        return lines[line_num]
+        return self.root._get_line_recursive(line_num)
 
     @staticmethod
     def _concat_static(node1: RopeNode, node2: RopeNode) -> RopeNode:
