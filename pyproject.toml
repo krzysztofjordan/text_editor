@@ -30,4 +30,7 @@ simple-text-editor = "editor.main:SimpleTextEditor.main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["editor", "editor.components"] 
+packages = ["editor", "editor.components"]
+
+[tool.ruff]
+line-length = 127 

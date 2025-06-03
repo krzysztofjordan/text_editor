@@ -10,4 +10,12 @@ repos:
       - id: black
         language_version: python3
         types: [python]
-        args: [--line-length=88]
+        args: [--line-length=127]
+  - repo: local
+    hooks:
+      - id: check-env-sync
+        name: Check environment.yml sync with pyproject.toml
+        entry: scripts/check_env_sync.py
+        language: system # Assumes python is in the path, or use python
+        types: [file]
+        files: ^(pyproject\.toml|environment\.yml)$
