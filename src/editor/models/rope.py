@@ -37,15 +37,7 @@ class RopeMetrics:
         )
 
     def __add__(self, other: "RopeMetrics") -> "RopeMetrics":
-        """Combine two metrics.
-        NOTE: This is a temporary, less efficient but robust implementation
-        for debugging purposes. It relies on reconstructing text to get
-        metrics.
-        """
-        # This approach is for correctness, not performance.
-        # It assumes that we can (hypothetically) get text for self and
-        # other. This is NOT how it should be in a performant rope; helps
-        # isolate bugs.
+        """Combine two metrics efficiently using their existing properties."""
         if self.length == 0:
             return other
         if other.length == 0:
@@ -55,15 +47,11 @@ class RopeMetrics:
         _line_count: int
         _last_line_length: int
 
-        # Simplified logic:
-        # If self.lll is 0, it implies self.text ends w/ '\\n'
-        # (unless self.text is "", where lc=1, lll=0).
-        # Or self.text is exactly "\\n" (len=1, lc=2, lll=0)
-        self_ends_in_newline_char = (
-            self.last_line_length == 0 and self.line_count > 1
-        ) or (self.length == 1 and self.line_count == 2 and self.last_line_length == 0)
+        # Determine if 'self' metrics represent text ending in a newline char.
+        # True if last line has 0 length & line_count > 1 (distinguishes from "").
+        self_ends_in_newline_char = self.last_line_length == 0 and self.line_count > 1
 
-        if self_ends_in_newline_char:  # e.g. "abc\\n" + "def"; "\\n" + "def"
+        if self_ends_in_newline_char:  # e.g. "abc\n" + "def"; "\n" + "def"
             _line_count = (self.line_count - 1) + other.line_count
             _last_line_length = other.last_line_length
         else:  # e.g. "abc" + "def"; "" + "def"
@@ -204,42 +192,36 @@ class Rope:
         return self.root.metrics.line_count
 
     def get_line(self, line_num: int) -> str:
-        """Get text of specific line (uses get_text for now)"""
-        # This method remains unchanged for now to rely on the robust
-        # (though less efficient) string splitting, ensuring compatibility
-        # with existing tests. Future optimization: implement this by
-        # traversing the tree using line metrics.
-        if line_num < 0 or line_num >= self.get_line_count():
-            # Check against metrics-based line count.
-            # If metrics are wrong, this might differ from text.split based
-            # count. However, get_line_count() is now metrics based.
-            actual_lines_via_get_text = self.get_text().split("\n")
-            if line_num < 0 or line_num >= len(actual_lines_via_get_text):
-                raise IndexError(
-                    "Line number out of range (consistency get_text check)"
-                )
+        """Get text of a specific line.
 
-        # This is the behavior tests were aligned with.
+        Currently, this method retrieves the full text and splits it by newlines.
+        A future optimization would be to traverse the rope structure directly
+        using line metrics for more efficient access.
+        """
+        # Validate line_num against the metrics-based line count.
+        if not (0 <= line_num < self.get_line_count()):
+            # For additional robustness, especially during development or if metrics
+            # could be suspect, one might double-check against text.split() here.
+            # However, for typical operation, trust metrics from self.get_line_count().
+            raise IndexError(f"Line number {line_num} out of range.")
+
+        # Efficient line retrieval by traversing the rope is a TODO.
+        # For now, using string splitting for simplicity and correctness.
         text = self.get_text()
         lines = text.split("\n")
-        # The self.get_line_count() should match len(lines)
-        # due to RopeMetrics changes.
-        if line_num >= len(lines):  # Safeguard if metrics differ from split()
-            # This case implies an issue with RopeMetrics consistency.
-            # For robustness, if metrics say fewer lines than split(),
-            # it could lead to issues.
-            # However, the goal is for them to be consistent.
-            # Fallback for safety, though ideally not hit if metrics are
-            # perfect:
-            if line_num == 0 and len(lines) == 0:
-                return ""  # Edge case: empty text
-            # This path indicates a severe metrics inconsistency.
-            # Defaulting to IndexError as per original logic
-            # if split doesn't yield enough lines.
-            msg = (
-                f"Line number {line_num} out of range for " f"actual lines {len(lines)}"
+
+        # This check ensures that if line_num was valid according to metrics,
+        # it should also be valid for the split lines. If not, it implies
+        # a discrepancy between metrics and actual text content.
+        if line_num >= len(lines):
+            # This should ideally not be reached if metrics are accurate.
+            # Handling potential edge case for an empty rope giving lines = [""]
+            if line_num == 0 and self.root.metrics.length == 0:
+                return ""
+            # If still out of bounds, it indicates an internal inconsistency.
+            raise IndexError(
+                f"Metrics/text content mismatch: line {line_num} vs {len(lines)} lines"
             )
-            raise IndexError(msg)
         return lines[line_num]
 
     @staticmethod
