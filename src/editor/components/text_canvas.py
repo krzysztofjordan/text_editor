@@ -19,6 +19,9 @@ class TextCanvas(tk.Canvas):
         self.text_x = 35  # Increased left margin for line numbers
         self.text_y = 10  # Top margin
 
+        # Tab size
+        self.tab_size = 4  # Default tab size
+
         # Window dimensions
         self.canvas_width = 0
         self.canvas_height = 0
@@ -40,6 +43,7 @@ class TextCanvas(tk.Canvas):
         self.bind("<Key>", self.handle_keypress)
         self.bind("<Return>", lambda e: self.buffer.insert_newline())
         self.bind("<BackSpace>", lambda e: self.buffer.backspace())
+        self.bind("<Tab>", self.handle_tab_press)
 
     def on_buffer_changed(self):
         """Called by TextBuffer when its content changes"""
@@ -144,7 +148,7 @@ class TextCanvas(tk.Canvas):
             self.draw_scrollbar()
 
     def draw_scrollbar(self):
-        """Draw a simple scrollbar on the right side"""
+        """Draw a simple scrollbar."""
         total_lines = self.buffer.get_line_count()
         visible_lines = self.get_visible_lines()
 
@@ -179,6 +183,12 @@ class TextCanvas(tk.Canvas):
             return "break"
 
         self.buffer.insert_char(event.char)
+        return "break"
+
+    def handle_tab_press(self, event):
+        """Handle Tab key press for indentation."""
+        for _ in range(self.tab_size):
+            self.buffer.insert_char(" ")
         return "break"
 
     # Helper methods for testing
