@@ -159,3 +159,23 @@ class TextBuffer:
     def get_cursor_position(self) -> Position:
         """Get the current cursor position"""
         return Position(self.cursor.row, self.cursor.col)
+
+    def set_cursor_position(self, row: int, col: int):
+        """Set the cursor to a specific row and column."""
+        # Ensure row is within buffer bounds
+        num_lines = self.get_line_count()
+        if num_lines == 0:
+            validated_row = 0
+        else:
+            validated_row = max(0, min(row, num_lines - 1))
+
+        # Ensure col is within line bounds
+        if num_lines == 0:
+            validated_col = 0
+        else:
+            line_len = self.get_line_length(validated_row)
+            validated_col = max(0, min(col, line_len))
+
+        self.cursor.row = validated_row
+        self.cursor.col = validated_col
+        self._notify_observers()

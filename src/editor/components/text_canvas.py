@@ -44,6 +44,7 @@ class TextCanvas(tk.Canvas):
         self.bind("<Return>", lambda e: self.buffer.insert_newline())
         self.bind("<BackSpace>", lambda e: self.buffer.backspace())
         self.bind("<Tab>", self.handle_tab_press)
+        self.bind("<Button-1>", self.handle_mouse_click)
 
     def on_buffer_changed(self):
         """Called by TextBuffer when its content changes"""
@@ -190,6 +191,14 @@ class TextCanvas(tk.Canvas):
         for _ in range(self.tab_size):
             self.buffer.insert_char(" ")
         return "break"
+
+    def handle_mouse_click(self, event):
+        """Handle left mouse clicks to move the cursor."""
+        clicked_row = (event.y - self.text_y) // self.line_height
+        clicked_col = (event.x - self.text_x) // self.char_width
+
+        # The TextBuffer.set_cursor_position method now handles validation.
+        self.buffer.set_cursor_position(clicked_row, clicked_col)
 
     # Helper methods for testing
     def get_text(self):
